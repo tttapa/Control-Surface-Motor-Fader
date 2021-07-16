@@ -1,0 +1,12 @@
+{
+    "clangd.fallbackFlags": [
+        "-I${env:HOME}/.arduino15/packages/arduino/hardware/avr/1.8.3/cores/arduino",
+        "-I${env:HOME}/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include",
+        "-I${env:HOME}/.arduino15/packages/arduino/hardware/avr/1.8.3/variants/standard",
+        "-I${env:HOME}/.arduino15/packages/arduino/hardware/avr/1.8.3/libraries/Wire/src",
+        "-I${env:HOME}/Arduino/libraries/Control-Surface/src",
+        "-D__AVR_ATmega328P__",
+        "-D__AVR_DEVICE_NAME__=atmega328p",
+        "-mmcu=atmega328p"
+    ]
+}

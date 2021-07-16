@@ -1,0 +1,5 @@
+.cache
+__pycache__
+Python/data
+Python/*.svg
+build
