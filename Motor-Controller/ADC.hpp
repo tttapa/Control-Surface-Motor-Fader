@@ -11,7 +11,7 @@ template <class Config>
 struct ADCManager {
     /// Evenly distribute the analog readings in the control loop period.
     constexpr static uint8_t adc_start_count =
-        Config::interrupt_counter / Config::num_faders;
+        Config::interrupt_divisor / Config::num_faders;
     /// The rate at which we're sampling using the ADC.
     constexpr static float adc_rate = Config::interrupt_freq / adc_start_count;
     // Check that this doesn't take more time than the 13 ADC clock cycles it
@@ -30,7 +30,7 @@ struct ADCManager {
     /// Start an ADC conversion at the right intervals.
     /// @param  counter
     ///         Counter that keeps track of how many times the timer interrupt
-    ///         fired, between 0 and Config::interrupt_counter - 1.
+    ///         fired, between 0 and Config::interrupt_divisor - 1.
     /// Called inside an ISR.
     void update(uint8_t counter);
 

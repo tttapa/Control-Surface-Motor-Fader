@@ -14,9 +14,9 @@ struct TouchSense {
     static constexpr float period_50Hz = 1. / 50;
     /// Keep the “touched” status active for this many periods (see below):
     static constexpr uint8_t touch_sense_stickiness =
-        Config::interrupt_freq * period_50Hz * 4 / Config::interrupt_counter;
+        Config::interrupt_freq * period_50Hz * 4 / Config::interrupt_divisor;
     /// Check that the threshold is smaller than the control loop period:
-    static_assert(touch_sense_thres < Config::interrupt_counter,
+    static_assert(touch_sense_thres < Config::interrupt_divisor,
                   "Touch sense threshold too high");
 
     /// The combined bit mask for all touch GPIO pins.
@@ -33,7 +33,7 @@ struct TouchSense {
     /// Check which touch sensing knobs are being touched.
     /// @param  counter
     ///         Counter that keeps track of how many times the timer interrupt
-    ///         fired, between 0 and Config::interrupt_counter - 1.
+    ///         fired, between 0 and Config::interrupt_divisor - 1.
     /// Called inside an ISR.
     void update(uint8_t counter);
 

@@ -95,7 +95,7 @@ struct Config {
     // Print the setpoint, actual position and control signal to Serial.
     // Note that this slows down the control loop significantly, it probably
     // won't work if you are using more than one fader without increasing
-    // `interrupt_counter`:
+    // `interrupt_divisor`:
     static constexpr bool print_controller_signals = false;
     static constexpr uint8_t controller_to_print = 0;
     // Follow the test reference trajectory (true) or receive the target
@@ -133,14 +133,14 @@ struct Config {
     // in a PWM and interrupt frequency of 31.250 kHz
     // (fast PWM is twice as fast):
     static constexpr bool phase_correct_pwm = true;
-    // The fader position will be sampled once per `interrupt_counter` timer
+    // The fader position will be sampled once per `interrupt_divisor` timer
     // interrupts, this determines the sampling frequency of the control loop.
     // Some examples include 20 → 320 µs, 30 → 480 µs, 60 → 960 µs,
     // 90 → 1,440 µs, 124 → 2,016 µs, 188 → 3,008 µs, 250 → 4,000 µs.
     // 60 is the default, because it works with four faders. If you only use
     // a single fader, you can go as low as 20 because you only need a quarter
     // of the computations and ADC time:
-    static constexpr uint8_t interrupt_counter = 60 / (1 + phase_correct_pwm);
+    static constexpr uint8_t interrupt_divisor = 60 / (1 + phase_correct_pwm);
     // The prescaler for the timer, affects PWM and control loop frequencies:
     static constexpr unsigned prescaler_fac = 1;
     // The prescaler for the ADC, affects speed of analog readings:
@@ -159,7 +159,7 @@ struct Config {
     // ------------------------ Computed Quantities ------------------------- //
 
     // Sampling time of control loop:
-    constexpr static float Ts = 1. * prescaler_fac * interrupt_counter * 256 *
+    constexpr static float Ts = 1. * prescaler_fac * interrupt_divisor * 256 *
                                 (1 + phase_correct_pwm) / F_CPU;
     // Frequency at which the interrupt fires:
     constexpr static float interrupt_freq =
@@ -376,7 +376,7 @@ ISR(TIMER2_OVF_vect) {
     touch.update(counter);
 
     ++counter;
-    if (counter == Config::interrupt_counter) counter = 0;
+    if (counter == Config::interrupt_divisor) counter = 0;
 }
 
 // Fires when the ADC measurement is complete. Stores the reading, both before
