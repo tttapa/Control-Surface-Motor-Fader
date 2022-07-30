@@ -89,6 +89,11 @@
 
 // ----------------------------- Configuration ------------------------------ //
 
+// Enable MIDI input/output.
+#define WITH_MIDI 0
+// Print to the Serial monitor instead of sending actual MIDI messages.
+#define MIDI_DEBUG 0
+
 struct Config {
     // Print the control loop and interrupt frequencies to Serial at startup:
     static constexpr bool print_frequencies = true;
@@ -107,6 +112,14 @@ struct Config {
     static constexpr bool serial_control = true;
     // I²C slave address (zero to disable I²C):
     static constexpr uint8_t i2c_address = 8;
+    // The baud rate to use for the Serial interface (e.g. for MIDI_DEBUG,
+    // print_controller_signals, serial_control, etc.)
+    static constexpr uint32_t serial_baud_rate = 1000000;
+    // The baud rate to use for MIDI over Serial.
+    // Use 31'250 for MIDI over 5-pin DIN, HIDUINO/USBMidiKliK.
+    // Hairless MIDI uses 115'200 by default.
+    // The included python/SerialMIDI.py script uses 1'000'000.
+    static constexpr uint32_t midi_baud_rate = serial_baud_rate;
 
     // Number of faders, must be between 1 and 4:
     static constexpr size_t num_faders = 1;
@@ -173,6 +186,10 @@ struct Config {
     static_assert(use_A6_A7 || !fader_1_A2,
                   "Cannot use A2 for motor driver "
                   "and analog input at the same time");
+    static_assert(!WITH_MIDI || !serial_control,
+                  "Cannot use MIDI and Serial control at the same time");
+    static_assert(!WITH_MIDI || !print_controller_signals,
+                  "Cannot use MIDI while printing controller signals");
 };
 constexpr uint8_t Config::touch_masks[];
 constexpr float Ts = Config::Ts;
@@ -227,6 +244,59 @@ PID controllers[] {
     },
 };
 
+// ---------------------------------- MIDI ---------------------------------- //
+
+#if WITH_MIDI
+#include <Control_Surface.h>
+
+#if MIDI_DEBUG
+USBDebugMIDI_Interface midi {Config::serial_baud_rate};
+#else
+HardwareSerialMIDI_Interface midi {Serial, Config::midi_baud_rate};
+#endif
+
+template <uint8_t Idx>
+void sendMIDIMessages(bool touched) {
+    // Don't send if the UART buffer is (almost) full
+    if (Serial.availableForWrite() < 6) return;
+    // Touch
+    static bool prevTouched = false; // Whether the knob is being touched
+    if (touched != prevTouched) {
+        const MIDIAddress addr = MCU::FADER_TOUCH_1 + Idx;
+        touched ? midi.sendNoteOn(addr, 127) : midi.sendNoteOff(addr, 127);
+        prevTouched = touched;
+    }
+    // Position
+    static Hysteresis<4, uint16_t, uint16_t> hyst; // Filter the actual position
+    if (prevTouched && hyst.update(adc.readFiltered(Idx))) {
+        auto value = AH::increaseBitDepth<14, 10, uint16_t>(hyst.getValue());
+        midi.sendPitchBend(MCU::VOLUME_1 + Idx, value);
+    }
+}
+
+void updateMIDISetpoint(ChannelMessage msg) {
+    auto type = msg.getMessageType();
+    auto channel = msg.getChannel().getRaw();
+    if (type == MIDIMessageType::PITCH_BEND && channel < Config::num_faders)
+        references[channel].setMasterSetpoint(msg.getData14bit() >> 4);
+}
+
+void initMIDI() { midi.begin(); }
+
+void updateMIDI() {
+    while (1) {
+        auto evt = midi.read();
+        if (evt == MIDIReadEvent::NO_MESSAGE)
+            break;
+        else if (evt == MIDIReadEvent::CHANNEL_MESSAGE)
+            updateMIDISetpoint(midi.getChannelMessage());
+    }
+}
+
+#endif
+
+// ---------------- Printing all signals for serial plotter ----------------- //
+
 template <uint8_t Idx>
 void printControllerSignals(int16_t setpoint, int16_t adcval, int16_t control) {
     // Send (binary) controller signals over Serial to plot in Python
@@ -246,6 +316,8 @@ void printControllerSignals(int16_t setpoint, int16_t adcval, int16_t control) {
         Serial.println();
     }
 }
+
+// ----------------------------- Control logic ------------------------------ //
 
 template <uint8_t Idx>
 void updateController(uint16_t setpoint, int16_t adcval, bool touched) {
@@ -274,7 +346,11 @@ void updateController(uint16_t setpoint, int16_t adcval, bool touched) {
             motors.setSpeed<Idx>(control);
     }
 
+#if WITH_MIDI
+    sendMIDIMessages<Idx>(touched);
+#else
     printControllerSignals<Idx>(controller.getSetpoint(), adcval, control);
+#endif
 }
 
 template <uint8_t Idx>
@@ -316,16 +392,21 @@ void setup() {
     }
 
     // Configure the hardware
+    if (Config::enable_overrun_indicator) sbi(DDRB, 5); // Pin 13 output
+
+#if WITH_MIDI
+    initMIDI();
+#else
     if (Config::print_frequencies || Config::print_controller_signals ||
         Config::serial_control)
-        Serial.begin(1000000);
-
-    if (Config::enable_overrun_indicator) sbi(DDRB, 5); // Pin 13 output
+        Serial.begin(Config::serial_baud_rate);
+#endif
 
     adc.begin();
     touch.begin();
     motors.begin();
 
+    // Print information to the serial monitor or legends to the serial plotter
     if (Config::print_frequencies) {
         Serial.println();
         Serial.print(F("Interrupt frequency (Hz): "));
@@ -361,7 +442,11 @@ void loop() {
     if (Config::num_faders > 1) readAndUpdateController<1>();
     if (Config::num_faders > 2) readAndUpdateController<2>();
     if (Config::num_faders > 3) readAndUpdateController<3>();
+#if WITH_MIDI
+    updateMIDI();
+#else
     if (Config::serial_control) updateSerialIn();
+#endif
 }
 
 // ------------------------------- Interrupts ------------------------------- //
@@ -436,13 +521,12 @@ void updateSerialIn() {
     static_assert(sizeof(buf) == sizeof(float), "");
     // This function is called if a new byte of the message arrives:
     auto on_char_receive = [&](char new_byte, size_t index_in_packet) {
-        if (index_in_packet == 0) {
+        if (index_in_packet == 0)
             cmd = new_byte;
-        } else if (index_in_packet == 1) {
+        else if (index_in_packet == 1)
             fader_idx = new_byte - '0';
-        } else if (index_in_packet < 6) {
+        else if (index_in_packet < 6)
             buf[index_in_packet - 2] = new_byte;
-        }
     };
     // Convert the 4-byte buffer to a float:
     auto as_f32 = [&] {
