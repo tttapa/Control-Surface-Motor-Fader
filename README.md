@@ -6,9 +6,9 @@ Documentation: <https://tttapa.github.io/Pages/Arduino/Control-Theory/Motor-Fade
 
 ## Contents
 
-- `Motor-Controller`: Arduino Uno or Nano sketch running PID controllers for up to four motorized faders with touch sensitivity.
-- `MIDI-Controller`: Arduino sketch running Control Surface code that communicates with the motor controllers over I²C so the faders can be controlled over MIDI.
-- `Python`: Python script for trying out and comparing different tuning parameters for the motor controllers.
+- `Motor-Controller`: Arduino Uno or Nano sketch running PID controllers for up to four motorized faders with touch sensitivity. Optional serial MIDI in/output.
+- `MIDI-Controller`: Arduino sketch running [Control Surface](https://github.com/tttapa/Control-Surface) code that communicates with the motor controllers over I²C and allows the faders to be controlled over (USB) MIDI.
+- `Python/Tuning.py`: Python script for trying out and comparing different tuning parameters for the motor controllers.
 
 ## Demo video
 
