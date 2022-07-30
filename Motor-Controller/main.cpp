@@ -51,7 +51,7 @@
 // Fader 1:
 //  - A1:  wiper of the potentiometer          (ADC1)
 //  - D9:  touch pin of the knob               (PB1)
-//  - D13: input 3A of L293D dual H-bridge 1   (PB5)
+//  - D7:  input 3A of L293D dual H-bridge 1   (PD7)
 //  - D11: input 4A of L293D dual H-bridge 1   (OC2A)
 //
 // Fader 2:
@@ -63,7 +63,7 @@
 // Fader 3:
 //  - A3:  wiper of the potentiometer          (ADC3)
 //  - D12: touch pin of the knob               (PB4)
-//  - D7:  input 3A of L293D dual H-bridge 2   (PD7)
+//  - D13: input 3A of L293D dual H-bridge 2   (PB5)
 //  - D6:  input 4A of L293D dual H-bridge 2   (OC0A)
 //
 // If fader 1 is unused:
@@ -82,10 +82,10 @@
 // On an Arduino Nano, you can set an option to use pins A6/A7 instead of A2/A3.
 // Note that D13 is often pulsed by the bootloader, which might cause the fader
 // to move when resetting the Arduino. You can either disable this behavior in
-// the bootloader, or use a different pin (e.g. A3 or A4 on an Arduino Nano).
-// The overrun indicator is only enabled if the number of faders is 1, because
-// it conflicts with the motor driver pin of Fader 1. You can choose a different
-// pin instead.
+// the bootloader, or use a different pin (e.g. A2 or A3 on an Arduino Nano).
+// The overrun indicator is only enabled if the number of faders is less than 4,
+// because it conflicts with the motor driver pin of Fader 1. You can choose a
+// different pin instead.
 
 // ----------------------------- Configuration ------------------------------ //
 
@@ -123,14 +123,17 @@ struct Config {
 
     // Number of faders, must be between 1 and 4:
     static constexpr size_t num_faders = 1;
-    // Actually drive the motors:
+    // Actually drive the motors. If set to false, runs all code as normal, but
+    // doesn't turn on the motors.
     static constexpr bool enable_controller = true;
     // Use analog pins (A0, A1, A6, A7) instead of (A0, A1, A2, A3), useful for
     // saving digital pins on an Arduino Nano:
-    static constexpr bool use_A6_A7 = true;
-    // Use pin A2 instead of D13 as the motor driver pin for the second fader.
-    // Can only be used if `use_A6_A7` is set to true:
-    static constexpr bool fader_1_A2 = true;
+    static constexpr bool use_A6_A7 = false;
+    // Use pin A2 instead of D13 as the motor driver pin for the fourth fader.
+    // Allows D13 to be used as overrun indicator, and avoids issues with the
+    // bootloader blinking the LED.
+    // Can only be used if `use_A6_A7` is set to true.
+    static constexpr bool fader_3_A2 = false;
 
     // Capacitive touch sensing RC time threshold.
     // Increase this time constant if the capacitive touch sense is too
@@ -181,9 +184,11 @@ struct Config {
     constexpr static float adc_clock_freq = 1. * F_CPU / adc_prescaler_fac;
     // Pulse pin D13 if the control loop took too long:
     constexpr static bool enable_overrun_indicator =
-        num_faders < 2 || fader_1_A2;
+        num_faders < 4 || fader_3_A2;
 
-    static_assert(use_A6_A7 || !fader_1_A2,
+    static_assert(0 < num_faders && num_faders <= 4,
+                  "At most four faders supported");
+    static_assert(use_A6_A7 || !fader_3_A2,
                   "Cannot use A2 for motor driver "
                   "and analog input at the same time");
     static_assert(!WITH_MIDI || !serial_control,

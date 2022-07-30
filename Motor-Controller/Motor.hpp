@@ -65,10 +65,7 @@ inline void Motors<Config>::begin() {
         sbi(DDRD, 3);
     }
     if (Config::num_faders > 1) {
-        if (Config::fader_1_A2)
-            sbi(DDRC, 2);
-        else
-            sbi(DDRB, 5);
+        sbi(DDRD, 7);
         sbi(DDRB, 3);
     }
     if (Config::num_faders > 2) {
@@ -76,7 +73,11 @@ inline void Motors<Config>::begin() {
         sbi(DDRD, 5);
     }
     if (Config::num_faders > 3) {
-        sbi(DDRD, 7);
+        if (Config::fader_3_A2)
+            sbi(DDRC, 2);
+        else
+            sbi(DDRB, 5);
+
         sbi(DDRD, 6);
     }
 }
@@ -100,10 +101,7 @@ inline void Motors<Config>::forward(uint8_t speed) {
     else if (Idx == 1)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             cbi(TCCR2A, COM2A0);
-            if (Config::fader_1_A2)
-                cbi(PORTC, 2);
-            else
-                cbi(PORTB, 5);
+            cbi(PORTD, 7);
             OCR2A = speed;
         }
     else if (Idx == 2)
@@ -115,7 +113,10 @@ inline void Motors<Config>::forward(uint8_t speed) {
     else if (Idx == 3)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             cbi(TCCR0A, COM0A0);
-            cbi(PORTD, 7);
+            if (Config::fader_3_A2)
+                cbi(PORTC, 2);
+            else
+                cbi(PORTB, 5);
             OCR0A = speed;
         }
 }
@@ -139,10 +140,7 @@ inline void Motors<Config>::backward(uint8_t speed) {
     else if (Idx == 1)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             sbi(TCCR2A, COM2A0);
-            if (Config::fader_1_A2)
-                sbi(PORTC, 2);
-            else
-                sbi(PORTB, 5);
+            sbi(PORTD, 7);
             OCR2A = speed;
         }
     else if (Idx == 2)
@@ -154,7 +152,10 @@ inline void Motors<Config>::backward(uint8_t speed) {
     else if (Idx == 3)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             sbi(TCCR0A, COM0A0);
-            sbi(PORTD, 7);
+            if (Config::fader_3_A2)
+                sbi(PORTC, 2);
+            else
+                sbi(PORTB, 5);
             OCR0A = speed;
         }
 }
