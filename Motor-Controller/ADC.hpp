@@ -43,14 +43,30 @@ struct ADCManager {
     int16_t read(uint8_t idx);
     /// Get the latest filtered ADC reading for the given index.
     /// Called from main program, with interrupts enabled.
-    int16_t readFiltered(uint8_t idx);
+    /// @return (16 - Config::adc_ema_K)-bit filtered ADC value.
+    uint16_t readFiltered(uint8_t idx);
+    /// Get the latest filtered ADC reading for the given index.
+    /// Called from main program, with interrupts enabled.
+    /// @return 14-bit filtered ADC value.
+    uint16_t readFiltered14(uint8_t idx);
+    /// Get the latest filtered ADC reading for the given index.
+    /// Called inside an ISR.
+    /// @return 14-bit filtered ADC value.
+    uint16_t readFiltered14ISR(uint8_t idx);
 
     /// Write the ADC reading for the given index.
     /// Called from main program, with interrupts enabled.
     void write(uint8_t idx, int16_t val);
     /// Write the filtered ADC reading for the given index.
     /// Called only before ADC interrupts are enabled.
-    void writeFiltered(uint8_t idx, int16_t val);
+    /// @param  val 10-bit ADC value.
+    void writeFiltered(uint8_t idx, uint16_t val);
+
+    /// Convert a 10-bit ADC reading to the largest possible range for the given
+    /// value of Config::adc_ema_K.
+    uint16_t shiftValue10(uint16_t val);
+    /// Convert the given shifted filtered value to a 14-bit range.
+    uint16_t unShiftValue14(uint16_t val);
 
     /// Convert the channel index between 0 and Config::num_faders - 1 to the
     /// actual ADC multiplexer address.
@@ -63,12 +79,13 @@ struct ADCManager {
 
     /// Index of the ADC channel currently being read.
     uint8_t channel_index = Config::num_faders;
-    /// Latest ADC reading of each fader (updated in ADC ISR). Used for the
-    /// control loop.
+    /// Latest 10-bit ADC reading of each fader (updated in ADC ISR). Used for
+    /// the control loop.
     volatile int16_t readings[Config::num_faders];
     /// Filters for ADC readings.
     EMA<Config::adc_ema_K, uint16_t> filters[Config::num_faders];
-    /// Filtered ADC readings. Used to output over MIDI.
+    /// Filtered (shifted) ADC readings. Used to output over MIDI etc. but not
+    /// for the control loop.
     volatile uint16_t filtered_readings[Config::num_faders];
 };
 
@@ -121,14 +138,14 @@ inline void ADCManager<Config>::complete() {
     readings[channel_index] = value;
     // Filter the reading
     auto &filter = filters[channel_index];
-    filtered_readings[channel_index] = filter(value << (6 - Config::adc_ema_K));
+    filtered_readings[channel_index] = filter(shiftValue10(value));
 }
 
 template <class Config>
 inline int16_t ADCManager<Config>::read(uint8_t idx) {
-    int16_t v;
-    ATOMIC_BLOCK(ATOMIC_FORCEON) { v = readings[idx]; }
-    return v;
+    int16_t val;
+    ATOMIC_BLOCK(ATOMIC_FORCEON) { val = readings[idx]; }
+    return val;
 }
 
 template <class Config>
@@ -137,14 +154,35 @@ inline void ADCManager<Config>::write(uint8_t idx, int16_t val) {
 }
 
 template <class Config>
-inline int16_t ADCManager<Config>::readFiltered(uint8_t idx) {
-    int16_t v;
-    ATOMIC_BLOCK(ATOMIC_FORCEON) { v = filtered_readings[idx]; }
-    return v;
+inline uint16_t ADCManager<Config>::shiftValue10(uint16_t val) {
+    return val << (6 - Config::adc_ema_K);
 }
 
 template <class Config>
-inline void ADCManager<Config>::writeFiltered(uint8_t idx, int16_t val) {
-    filters[idx].reset(val);
-    filtered_readings[idx] = val;
+inline uint16_t ADCManager<Config>::unShiftValue14(uint16_t val) {
+    const int shift = 6 - Config::adc_ema_K - 4;
+    return shift >= 0 ? val >> shift : val << -shift;
+}
+
+template <class Config>
+inline uint16_t ADCManager<Config>::readFiltered14ISR(uint8_t idx) {
+    return unShiftValue14(filtered_readings[idx]);
+}
+
+template <class Config>
+inline uint16_t ADCManager<Config>::readFiltered(uint8_t idx) {
+    uint16_t val;
+    ATOMIC_BLOCK(ATOMIC_FORCEON) { val = filtered_readings[idx]; }
+    return val;
+}
+
+template <class Config>
+inline uint16_t ADCManager<Config>::readFiltered14(uint8_t idx) {
+    return unShiftValue14(readFiltered(idx));
+}
+
+template <class Config>
+inline void ADCManager<Config>::writeFiltered(uint8_t idx, uint16_t val) {
+    filters[idx].reset(shiftValue10(val));
+    filtered_readings[idx] = shiftValue10(val);
 }

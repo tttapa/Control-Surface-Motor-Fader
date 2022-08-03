@@ -272,7 +272,7 @@ void sendMIDIMessages(bool touched) {
         prevTouched = touched;
     }
     // Position
-    static Hysteresis<4, uint16_t, uint16_t> hyst; // Filter the actual position
+    static Hysteresis<6 - Config::adc_ema_K, uint16_t, uint16_t> hyst;
     if (prevTouched && hyst.update(adc.readFiltered(Idx))) {
         auto value = AH::increaseBitDepth<14, 10, uint16_t>(hyst.getValue());
         midi.sendPitchBend(MCU::VOLUME_1 + Idx, value);
@@ -482,7 +482,7 @@ void onRequest() {
         touched |= touch.touched[i] << i;
     Wire.write(touched);
     for (uint8_t i = 0; i < Config::num_faders; ++i) {
-        uint16_t filt_read = adc.filtered_readings[i];
+        uint16_t filt_read = adc.readFiltered14ISR(i);
         Wire.write(reinterpret_cast<const uint8_t *>(&filt_read), 2);
     }
 }
