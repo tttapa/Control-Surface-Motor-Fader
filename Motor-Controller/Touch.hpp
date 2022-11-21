@@ -44,7 +44,7 @@ struct TouchSense {
     // Timers to take into account the stickiness.
     uint8_t touch_timers[Config::num_faders] {};
     // Whether the knobs are being touched.
-    volatile bool touched[Config::num_faders];
+    volatile bool touched[Config::num_faders] {};
 };
 
 template <class Config>
@@ -73,6 +73,8 @@ void TouchSense<Config>::begin() {
 
 template <class Config>
 void TouchSense<Config>::update(uint8_t counter) {
+    if (gpio_mask == 0)
+        return;
     if (counter == 0) {
         DDRB &= ~gpio_mask; // input mode, start charging
     } else if (counter == touch_sense_thres) {
