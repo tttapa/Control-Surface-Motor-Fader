@@ -81,6 +81,8 @@ void TouchSense<Config>::update(uint8_t counter) {
         uint8_t touched_bits = PINB;
         DDRB |= gpio_mask; // output mode, start discharging
         for (uint8_t i = 0; i < Config::num_faders; ++i) {
+            if (Config::touch_masks[i] == 0)
+                continue;
             bool touch_i = (touched_bits & Config::touch_masks[i]) == 0;
             if (touch_i) {
                 touch_timers[i] = touch_sense_stickiness;
