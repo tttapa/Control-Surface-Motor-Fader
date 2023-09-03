@@ -127,13 +127,15 @@ class Reference {
     }
 
     uint16_t getNextExperimentSetpoint() {
+        constexpr uint16_t LOW_VAL = 24;
+        constexpr uint16_t HIGH_VAL = 1000;
         constexpr uint16_t RAMPUP = 0xFFFF;
         auto rampup = [](uint16_t idx, uint16_t duration) {
-            return uint32_t(1024) * idx / duration;
+            return uint32_t(HIGH_VAL + 1) * idx / duration;
         };
         constexpr uint16_t RAMPDOWN = 0xFFFE;
         auto rampdown = [&](uint16_t idx, uint16_t duration) {
-            return 1023 - rampup(idx, duration);
+            return HIGH_VAL - rampup(idx, duration);
         };
         struct TestSeq {
             uint16_t setpoint;
@@ -141,8 +143,9 @@ class Reference {
         };
         // This array defines the test sequence
         constexpr static TestSeq seqs[] {
-            {0, 256},  {RAMPUP, 128}, {1023, 32}, {0, 64},    {333, 32},
-            {666, 32}, {333, 32},     {0, 32},    {512, 256},
+            {LOW_VAL, 256}, {RAMPUP, 128}, {HIGH_VAL, 32},
+            {LOW_VAL, 64},  {333, 32},     {666, 32},
+            {333, 32},      {LOW_VAL, 32}, {512, 256},
         };
 
         static uint8_t seq_index = 0;

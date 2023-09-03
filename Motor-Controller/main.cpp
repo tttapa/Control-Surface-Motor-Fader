@@ -166,6 +166,8 @@ struct Config {
     // The prescaler for the ADC, affects speed of analog readings:
     static constexpr uint8_t adc_prescaler_fac = 64;
 
+    // Proportional on measurement.
+    static constexpr float proportional_on_measurement = 0.75;
     // Turn off the motor after this many seconds of inactivity:
     static constexpr float timeout = 2;
 
@@ -218,14 +220,14 @@ Reference<Config> references[Config::num_faders];
 
 // The main PID controllers. Need tuning for your specific setup:
 
-PID controllers[] {
+PID<Config> controllers[] {
     // This is an example of a controller with very little overshoot
     {
-        6,     // Kp: proportional gain
-        2,     // Ki: integral gain
-        0.035, // Kd: derivative gain
+        8.55,     // Kp: proportional gain
+        440,     // Ki: integral gain
+        0.043, // Kd: derivative gain
         Ts,    // Ts: sampling time
-        60, // fc: cutoff frequency of derivative filter (Hz), zero to disable
+        70, // fc: cutoff frequency of derivative filter (Hz), zero to disable
     },
     // This one has more overshoot, but less ramp tracking error
     {

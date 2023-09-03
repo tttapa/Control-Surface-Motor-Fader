@@ -37,6 +37,7 @@ inline float calcAlphaEMA(float f_n) {
 
 /// Standard PID (proportional, integral, derivative) controller. Derivative
 /// component is filtered using an exponential moving average filter.
+template <class Config>
 class PID {
   public:
     PID() = default;
@@ -93,6 +94,8 @@ class PID {
 
         // Standard PID rule
         float output = kp * error + ki_Ts * calcIntegral + kd_Ts * diff;
+        if (Config::proportional_on_measurement > 0)
+            output -= kp * Config::proportional_on_measurement * setpoint;
 
         // Clamp and anti-windup
         if (output > maxOutput)
