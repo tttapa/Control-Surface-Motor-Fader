@@ -5,7 +5,8 @@
 
 #include <Arduino_Helpers.h> // EMA.hpp
 
-#include <AH/Filters/EMA.hpp> // EMA filter
+#include <AH/Filters/EMA.hpp>           // EMA filter
+#include <AH/Math/IncreaseBitDepth.hpp> // increaseBitDepth
 
 template <class Config>
 struct ADCManager {
@@ -155,7 +156,7 @@ inline void ADCManager<Config>::write(uint8_t idx, int16_t val) {
 
 template <class Config>
 inline uint16_t ADCManager<Config>::shiftValue10(uint16_t val) {
-    return val << (6 - Config::adc_ema_K);
+    return AH::increaseBitDepth<16 - Config::adc_ema_K, 10, uint16_t>(val);
 }
 
 template <class Config>
