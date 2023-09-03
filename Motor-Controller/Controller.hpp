@@ -79,7 +79,6 @@ class PID {
             float filtError = setpoint - prevInput;
             if (filtError >= -errThres && filtError <= errThres) {
                 errThres = 2; // hysteresis
-                integral = newIntegral;
                 return 0;
             } else {
                 errThres = 1;
