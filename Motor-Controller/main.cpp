@@ -134,6 +134,10 @@ struct Config {
     // bootloader blinking the LED.
     // Can only be used if `use_A6_A7` is set to true.
     static constexpr bool fader_3_A2 = false;
+    // Change the setpoint to the current position when touching the knob.
+    // Useful if your DAW does not send any feedback when manually moving the
+    // fader.
+    static constexpr bool touch_to_current_position = false;
 
     // Capacitive touch sensing RC time threshold.
     // Increase this time constant if the capacitive touch sense is too
@@ -350,6 +354,10 @@ void updateController(uint16_t setpoint, int16_t adcval, bool touched) {
         else
             motors.setSpeed<Idx>(control);
     }
+
+    // Change the setpoint as we move
+    if (Config::touch_to_current_position && touched)
+        references[Idx].setMasterSetpoint(adcval);
 
 #if WITH_MIDI
     sendMIDIMessages<Idx>(touched);
